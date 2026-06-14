@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>27c.site</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/css/style.css?v=1">
+</head>
+<body>
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="logo">27c.site</a>
+      <div class="nav-links">
+        <a href="/" data-i18n="nav_home">软件</a>
+        <span id="nav-user"></span>
+        <a href="#" id="lang-toggle" class="lang-toggle">EN</a>
+      </div>
+      <button class="nav-toggle">&#9776;</button>
+    </div>
+  </nav>
+
+  <div id="toast-container"></div>
+
+  <main>
+    <div class="product-page">
+      <div class="product-back"><a href="/" data-i18n="back_to_list">← 返回列表</a></div>
+      <div id="product-detail" class="product-detail"></div>
+      <div id="reviews-section" class="reviews-section"></div>
+    </div>
+  </main>
+
+  <footer>
+    <p id="footer-text">© 2026 27c.site</p>
+    <p class="footer-links">
+      <a href="/">首页</a> · <a href="/about.html">关于</a> · <a href="/privacy.html">隐私政策</a>
+    </p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/i18n.js"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/db.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.dataset.i18n);
+      });
+      document.getElementById('footer-text').textContent = t('footer_text');
+
+      const params = new URLSearchParams(window.location.search);
+      const productId = params.get('id');
+      if (!productId) { window.location = '/'; return; }
+
+      try {
+        const product = await fetchProduct(productId);
+        document.title = product.name + ' - 27c.site';
+        document.querySelector('meta[name="description"]').content = product.description || product.name;
+
+        const lang = currentLang();
+        const cloudFull = t('cloud_full_' + (product.cloud_type || 'other'));
+        const detailEl = document.getElementById('product-detail');
+
+        const imgHtml = product.image_url
+          ? '<img src="' + product.image_url + '" alt="' + product.name + '">'
+          : '<div class="product-img-placeholder"><span>' + product.name.slice(0,2) + '</span></div>';
+
+        const catHtml = product.category
+          ? '<span class="product-category">' + product.category + '</span>' : '';
+        const cloudHtml = product.cloud_type
+          ? '<span class="cloud-badge cloud-' + product.cloud_type + '">' + t('cloud_' + product.cloud_type) + '</span>' : '';
+
+        const descHtml = product.description
+          ? '<div class="product-desc"><h3>' + t('resource_detail') + '</h3><p>' + product.description + '</p></div>' : '';
+
+        const linkHtml = product.quark_link
+          ? '<a href="' + product.quark_link + '" target="_blank" rel="noopener" class="btn btn-primary btn-buy">' + t('free_download') + '</a>'
+          : '<button class="btn btn-secondary" disabled>' + t('no_link') + '</button>';
+
+        const proxyHtml = product.contact_tg
+          ? '<div class="proxy-service">' +
+            '<div class="proxy-header">' + t('proxy_title') + '</div>' +
+            '<p class="proxy-desc">' + t('proxy_desc') + '</p>' +
+            '<div class="proxy-contact"><a href="https://t.me/' + product.contact_tg + '" target="_blank" rel="noopener" class="proxy-tg-link">@' + product.contact_tg + '</a></div>' +
+            '<p class="proxy-note">' + t('proxy_note') + '</p>' +
+            '</div>' : '';
+
+        detailEl.innerHTML =
+          '<div class="product-image">' + imgHtml + '</div>' +
+          '<div class="product-info">' +
+          '<h1 class="product-title">' + product.name + '</h1>' +
+          catHtml + cloudHtml +
+          '<div class="product-price-box"><span class="product-price product-price-free">' + t('free_download') + '</span></div>' +
+          descHtml +
+          '<div class="product-actions">' + linkHtml + '</div>' +
+          '<div class="product-meta"><p>' + t('download_tip', {cloud: cloudFull}) + '</p></div>' +
+          proxyHtml +
+          '</div>';
+
+        // 评价
+        const reviews = await fetchReviews(productId);
+        const reviewsEl = document.getElementById('reviews-section');
+
+        let reviewFormHtml;
+        if (isLoggedIn()) {
+          reviewFormHtml =
+            '<div class="review-form"><h3>' + t('write_review') + '</h3>' +
+            '<form id="review-form">' +
+            '<div class="rating-input"><label>' + t('rating_5').slice(0,2) + '：</label>' +
+            '<select id="review-rating">' +
+            '<option value="5">' + t('rating_5') + '</option>' +
+            '<option value="4">' + t('rating_4') + '</option>' +
+            '<option value="3">' + t('rating_3') + '</option>' +
+            '<option value="2">' + t('rating_2') + '</option>' +
+            '<option value="1">' + t('rating_1') + '</option>' +
+            '</select></div>' +
+            '<textarea id="review-content" class="review-textarea" placeholder="' + t('review_placeholder') + '" required></textarea>' +
+            '<button type="submit" class="btn btn-primary">' + t('submit_review') + '</button>' +
+            '</form></div>';
+        } else {
+          reviewFormHtml = '<div class="review-login-tip"><a href="/login.html">' + t('review_login') + '</a></div>';
+        }
+
+        let reviewsListHtml = '';
+        reviews.forEach(r => {
+          const username = r.profiles?.username || 'Anonymous';
+          const date = new Date(r.created_at).toISOString().slice(0,10);
+          const stars = '★'.repeat(r.rating);
+          reviewsListHtml +=
+            '<div class="review-item">' +
+            '<div class="review-header">' +
+            '<span class="review-user">' + username + '</span>' +
+            '<span class="review-rating">' + stars + '</span>' +
+            '<span class="review-date">' + date + '</span>' +
+            '</div><p class="review-content">' + r.content + '</p></div>';
+        });
+
+        if (!reviewsListHtml) reviewsListHtml = '<p class="no-reviews">' + t('no_reviews') + '</p>';
+
+        reviewsEl.innerHTML =
+          '<h2 class="reviews-title">' + t('reviews_title', {count: reviews.length}) + '</h2>' +
+          reviewFormHtml +
+          '<div class="reviews-list">' + reviewsListHtml + '</div>';
+
+        // 评价表单
+        const form = document.getElementById('review-form');
+        if (form) {
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const rating = parseInt(document.getElementById('review-rating').value);
+            const content = document.getElementById('review-content').value.trim();
+            if (!content) return;
+            try {
+              await addReview(productId, rating, content);
+              showToast(t('submit_review'), 'success');
+              setTimeout(() => window.location.reload(), 500);
+            } catch (err) {
+              showToast(err.message, 'error');
+            }
+          });
+        }
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById('product-detail').innerHTML =
+          '<div class="no-results"><p>商品不存在或已下架</p><a href="/" class="btn btn-primary">' + t('back_to_list') + '</a></div>';
+      }
+    });
+  </script>
+</body>
+</html>

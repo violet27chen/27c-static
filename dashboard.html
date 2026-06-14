@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理后台 - 27c.site</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/css/style.css?v=1">
+  <style>
+    .admin-page { padding: 32px 0 48px; }
+    .admin-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .admin-top h1 { font-size: 22px; font-weight: 700; }
+    .admin-stats { display: flex; gap: 16px; margin-bottom: 24px; }
+    .stat-card { flex: 1; background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 0 0 1px rgba(0,0,0,.06); }
+    .stat-num { font-size: 28px; font-weight: 700; color: #171717; }
+    .stat-label { font-size: 13px; color: #888; margin-top: 2px; }
+    .admin-list { display: flex; flex-direction: column; gap: 1px; background: rgba(0,0,0,.06); border-radius: 12px; overflow: hidden; }
+    .admin-item { display: flex; align-items: center; gap: 16px; padding: 16px; background: #fff; }
+    .admin-item-img { width: 56px; height: 56px; border-radius: 10px; overflow: hidden; flex-shrink: 0; background: #f0f0f0; }
+    .admin-item-img img { width: 100%; height: 100%; object-fit: cover; }
+    .admin-item-noimg { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e8e8e8, #d4d4d4); color: #999; font-size: 16px; font-weight: 600; }
+    .admin-item-info { flex: 1; min-width: 0; }
+    .admin-item-name { font-size: 14px; font-weight: 600; color: #171717; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .admin-item-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; color: #888; }
+    .admin-item-meta .cloud-badge { margin: 0; }
+    .admin-badge-on { display: inline-block; padding: 3px 10px; background: #f0fdf4; color: #16a34a; border-radius: 4px; font-weight: 600; font-size: 11px; }
+    .admin-badge-off { display: inline-block; padding: 3px 10px; background: #fef2f2; color: #dc2626; border-radius: 4px; font-weight: 600; font-size: 11px; }
+    .admin-item-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .admin-empty { text-align: center; padding: 64px 0; color: #999; background: #fff; border-radius: 12px; box-shadow: 0 0 0 1px rgba(0,0,0,.06); }
+    .admin-empty p { margin-bottom: 16px; }
+    .btn-danger { background: #dc2626; color: #fff !important; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-outline { background: #fff; color: #666; border: 1px solid #e5e5e5; }
+    .btn-outline:hover { border-color: #171717; color: #171717; }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.5); z-index: 1000; justify-content: center; align-items: center; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: #fff; border-radius: 16px; width: 520px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+    .modal-header { padding: 20px 24px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+    .modal-header h3 { font-size: 17px; font-weight: 600; }
+    .modal-close { width: 32px; height: 32px; border: none; background: none; font-size: 20px; cursor: pointer; color: #999; border-radius: 8px; }
+    .modal-close:hover { background: #f5f5f5; color: #333; }
+    .modal-body { padding: 24px; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 12px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group > label:first-child { display: block; font-size: 13px; font-weight: 500; color: #666; margin-bottom: 6px; }
+    .form-control { width: 100%; padding: 10px 14px; font-size: 14px; border: none; border-radius: 10px; background: #f5f5f5; outline: none; font-family: inherit; transition: box-shadow .2s; }
+    .form-control:focus { box-shadow: 0 0 0 2px #171717; background: #fff; }
+    textarea.form-control { resize: vertical; min-height: 80px; }
+    select.form-control { appearance: auto; }
+    .form-check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .form-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: #171717; }
+    .img-tabs { display: flex; gap: 0; margin-bottom: 8px; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden; }
+    .img-tab { flex: 1; padding: 8px; text-align: center; font-size: 13px; font-weight: 500; cursor: pointer; background: #fafafa; color: #888; border: none; transition: all .2s; }
+    .img-tab.active { background: #171717; color: #fff; }
+    .img-tab-content { display: none; }
+    .img-tab-content.active { display: block; }
+    .upload-area { display: flex; flex-direction: column; align-items: center; gap: 8px; border: 2px dashed #e5e5e5; border-radius: 10px; padding: 24px; cursor: pointer; transition: all .2s; color: #999; }
+    .upload-area:hover { border-color: #171717; background: #fafafa; }
+    .upload-area input[type="file"] { position: absolute; width: 0; height: 0; opacity: 0; }
+    .upload-area span { font-size: 13px; }
+    .upload-hint { font-size: 12px; color: #aaa; margin-top: 6px; }
+    .img-preview { margin-top: 10px; display: none; }
+    .img-preview img { max-width: 200px; max-height: 120px; border-radius: 8px; object-fit: cover; }
+    .delete-btn { display: inline-block; margin-top: 6px; font-size: 12px; color: #dc2626; cursor: pointer; }
+    .upload-status { font-size: 12px; margin-top: 4px; color: #888; }
+    .upload-status.error { color: #dc2626; }
+    .upload-status.ok { color: #16a34a; }
+    @media (max-width: 768px) {
+      .admin-stats { flex-direction: column; }
+      .admin-item { flex-wrap: wrap; }
+      .admin-item-actions { width: 100%; justify-content: flex-end; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="logo">27c.site</a>
+      <div class="nav-links">
+        <a href="/" data-i18n="nav_home">软件</a>
+        <span id="nav-user"></span>
+        <a href="#" id="lang-toggle" class="lang-toggle">EN</a>
+      </div>
+      <button class="nav-toggle">&#9776;</button>
+    </div>
+  </nav>
+
+  <div id="toast-container"></div>
+
+  <main>
+    <div class="admin-page">
+      <div class="admin-top">
+        <h1 id="admin-title">资源管理</h1>
+        <button class="btn btn-primary btn-sm" id="btn-add" onclick="openModal()">+ 发布资源</button>
+      </div>
+      <div class="admin-stats">
+        <div class="stat-card"><div class="stat-num" id="stat-total">0</div><div class="stat-label" id="stat-total-label">我发布的资源</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-active">0</div><div class="stat-label" id="stat-active-label">上架中</div></div>
+      </div>
+      <div id="admin-list" class="admin-list"></div>
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">发布资源</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <form id="product-form">
+        <div class="modal-body">
+          <input type="hidden" id="form-id" value="">
+          <div class="form-group">
+            <label id="lbl-name">资源名称 *</label>
+            <input type="text" class="form-control" id="form-name" required>
+          </div>
+          <div class="form-group">
+            <label id="lbl-desc">描述</label>
+            <textarea class="form-control" id="form-desc"></textarea>
+          </div>
+          <div class="form-group">
+            <label id="lbl-cat">分类</label>
+            <select class="form-control" id="form-category">
+              <option value="">-- 选择分类 --</option>
+              <option value="__new__">+ 新建分类</option>
+            </select>
+            <input type="text" class="form-control" id="form-new-cat" placeholder="输入新分类名称" style="margin-top:8px;display:none;">
+          </div>
+          <div class="form-group">
+            <label id="lbl-img">商品图片</label>
+            <div class="img-tabs">
+              <button type="button" class="img-tab active" onclick="switchTab('image','upload')">上传</button>
+              <button type="button" class="img-tab" onclick="switchTab('image','url')">URL</button>
+            </div>
+            <div class="img-tab-content active" id="image-upload">
+              <label class="upload-area">
+                <input type="file" accept="image/*" onchange="handleUpload(this,'image')">
+                <span>点击或拖拽图片到此处</span>
+              </label>
+              <div class="upload-hint">JPG / PNG / WebP，最大 5MB</div>
+            </div>
+            <div class="img-tab-content" id="image-url">
+              <input type="url" class="form-control" id="image-direct-url" placeholder="https://example.com/image.jpg" oninput="document.getElementById('form-image-url').value=this.value">
+            </div>
+            <div class="img-preview" id="image-preview">
+              <img id="image-preview-img" src="">
+              <span class="delete-btn" onclick="clearPreview('image')">删除</span>
+            </div>
+            <input type="hidden" id="form-image-url" value="">
+            <div class="upload-status" id="image-status"></div>
+          </div>
+          <div class="form-group">
+            <label id="lbl-link">网盘链接 *</label>
+            <input type="url" class="form-control" id="form-link" required>
+          </div>
+          <div class="form-group">
+            <label id="lbl-tg">联系TG（选填）</label>
+            <input type="text" class="form-control" id="form-tg" placeholder="Telegram用户名">
+          </div>
+          <div class="form-group">
+            <label class="form-check">
+              <input type="checkbox" id="form-active" checked>
+              <span id="lbl-active">上架</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal()" id="btn-cancel">取消</button>
+          <button type="submit" class="btn btn-primary" id="btn-save">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer>
+    <p id="footer-text">© 2026 27c.site</p>
+    <p class="footer-links"><a href="/">首页</a> · <a href="/about.html">关于</a> · <a href="/privacy.html">隐私政策</a></p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/i18n.js"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/db.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    let myProducts = [];
+    let allCategories = [];
+
+    function loadTranslations() {
+      document.getElementById('admin-title').textContent = t('admin_title');
+      document.getElementById('btn-add').textContent = t('admin_add');
+      document.getElementById('stat-total-label').textContent = t('admin_my_resources');
+      document.getElementById('stat-active-label').textContent = t('admin_active');
+      document.getElementById('footer-text').textContent = t('footer_text');
+      document.getElementById('lbl-name').textContent = t('admin_label_name');
+      document.getElementById('lbl-desc').textContent = t('admin_label_desc');
+      document.getElementById('lbl-cat').textContent = t('admin_label_cat');
+      document.getElementById('lbl-img').textContent = t('admin_label_img');
+      document.getElementById('lbl-link').textContent = t('admin_label_link');
+      document.getElementById('lbl-tg').textContent = t('admin_label_tg');
+      document.getElementById('lbl-active').textContent = t('admin_label_active');
+      document.getElementById('btn-cancel').textContent = t('admin_btn_cancel');
+      document.getElementById('btn-save').textContent = t('admin_btn_save');
+      document.title = t('admin_title') + ' - 27c.site';
+    }
+
+    function renderList() {
+      const list = document.getElementById('admin-list');
+      document.getElementById('stat-total').textContent = myProducts.length;
+      document.getElementById('stat-active').textContent = myProducts.filter(p => p.is_active).length;
+
+      if (myProducts.length === 0) {
+        list.innerHTML = '<div class="admin-empty"><p>' + t('admin_no_resources') + '</p><button class="btn btn-primary" onclick="openModal()">' + t('admin_add_first') + '</button></div>';
+        return;
+      }
+
+      list.innerHTML = myProducts.map(p => {
+        const img = (p.thumb_url || p.image_url)
+          ? '<img src="' + (p.thumb_url || p.image_url) + '" alt="" loading="lazy">'
+          : '<div class="admin-item-noimg">' + p.name.slice(0,2) + '</div>';
+        const cloud = p.cloud_type ? '<span class="cloud-badge cloud-' + p.cloud_type + '">' + t('cloud_' + p.cloud_type) + '</span>' : '';
+        const tg = p.contact_tg ? '<span style="color:#3b82f6">@' + p.contact_tg + '</span>' : '';
+        const badge = p.is_active
+          ? '<span class="admin-badge-on">' + t('admin_status_on') + '</span>'
+          : '<span class="admin-badge-off">' + t('admin_status_off') + '</span>';
+        const toggleLabel = p.is_active ? t('admin_status_off') : t('admin_status_on');
+        const toggleColor = p.is_active ? 'color:#dc2626' : 'color:#16a34a';
+
+        return '<div class="admin-item">' +
+          '<div class="admin-item-img">' + img + '</div>' +
+          '<div class="admin-item-info">' +
+          '<div class="admin-item-name">' + p.name + '</div>' +
+          '<div class="admin-item-meta"><span>' + (p.category || '—') + '</span>' + cloud + tg + badge + '</div>' +
+          '</div>' +
+          '<div class="admin-item-actions">' +
+          '<button class="btn btn-outline btn-sm" onclick=\'editProduct(' + JSON.stringify(p).replace(/'/g, "&#39;") + ')\'>编辑</button>' +
+          '<button class="btn btn-outline btn-sm" style="' + toggleColor + '" onclick="toggleItem(' + p.id + ')">' + toggleLabel + '</button>' +
+          '<button class="btn btn-danger btn-sm" onclick="deleteItem(' + p.id + ')">' + t('admin_delete') + '</button>' +
+          '</div></div>';
+      }).join('');
+    }
+
+    async function loadProducts() {
+      try {
+        myProducts = await fetchMyProducts();
+        const cats = await fetchCategories();
+        allCategories = cats;
+
+        // 更新分类下拉
+        const sel = document.getElementById('form-category');
+        sel.innerHTML = '<option value="">' + t('admin_select_cat') + '</option>';
+        cats.forEach(c => { sel.innerHTML += '<option value="' + c + '">' + c + '</option>'; });
+        sel.innerHTML += '<option value="__new__">' + t('admin_new_cat') + '</option>';
+
+        renderList();
+      } catch (err) {
+        console.error(err);
+        showToast('加载失败', 'error');
+      }
+    }
+
+    function openModal(product) {
+      document.getElementById('modal-title').textContent = product ? t('admin_modal_edit') : t('admin_modal_add');
+      document.getElementById('form-id').value = product ? product.id : '';
+      document.getElementById('form-name').value = product ? product.name : '';
+      document.getElementById('form-desc').value = product ? (product.description || '') : '';
+      document.getElementById('form-category').value = product ? (product.category || '') : '';
+      document.getElementById('form-new-cat').style.display = 'none';
+      document.getElementById('form-active').checked = product ? !!product.is_active : true;
+      document.getElementById('form-link').value = product ? (product.quark_link || '') : '';
+      document.getElementById('form-tg').value = product ? (product.contact_tg || '') : '';
+      clearPreview('image');
+      if (product && product.image_url) {
+        document.getElementById('image-preview-img').src = product.image_url;
+        document.getElementById('image-preview').style.display = 'block';
+        document.getElementById('form-image-url').value = product.image_url;
+      }
+      switchTab('image', 'upload');
+      document.getElementById('modal').classList.add('active');
+    }
+
+    function closeModal() { document.getElementById('modal').classList.remove('active'); }
+
+    function editProduct(p) { openModal(p); }
+
+    function switchTab(prefix, tab) {
+      const uploadDiv = document.getElementById(prefix + '-upload');
+      const urlDiv = document.getElementById(prefix + '-url');
+      const tabs = uploadDiv.parentElement.querySelectorAll('.img-tab');
+      tabs[0].classList.toggle('active', tab === 'upload');
+      tabs[1].classList.toggle('active', tab === 'url');
+      uploadDiv.classList.toggle('active', tab === 'upload');
+      urlDiv.classList.toggle('active', tab === 'url');
+    }
+
+    async function handleUpload(input, prefix) {
+      const file = input.files[0];
+      if (!file) return;
+      const statusEl = document.getElementById(prefix + '-status');
+      if (file.size > 5 * 1024 * 1024) {
+        statusEl.textContent = t('admin_img_too_large');
+        statusEl.className = 'upload-status error';
+        return;
+      }
+      statusEl.textContent = t('admin_uploading');
+      statusEl.className = 'upload-status';
+      try {
+        const url = await uploadImage(file);
+        document.getElementById(prefix + '-preview-img').src = url;
+        document.getElementById(prefix + '-preview').style.display = 'block';
+        document.getElementById(prefix === 'image' ? 'form-image-url' : 'form-thumb-url').value = url;
+        statusEl.textContent = '';
+        statusEl.className = 'upload-status ok';
+      } catch (err) {
+        statusEl.textContent = err.message || t('admin_upload_fail');
+        statusEl.className = 'upload-status error';
+      }
+    }
+
+    function clearPreview(prefix) {
+      document.getElementById(prefix + '-preview').style.display = 'none';
+      document.getElementById(prefix + '-preview-img').src = '';
+      document.getElementById('form-image-url').value = '';
+    }
+
+    // Toggle new category input
+    document.getElementById('form-category').addEventListener('change', function() {
+      document.getElementById('form-new-cat').style.display = this.value === '__new__' ? 'block' : 'none';
+    });
+
+    // Save product
+    document.getElementById('product-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('form-id').value;
+      let category = document.getElementById('form-category').value;
+      if (category === '__new__') {
+        category = document.getElementById('form-new-cat').value.trim();
+      }
+
+      const product = {
+        name: document.getElementById('form-name').value.trim(),
+        description: document.getElementById('form-desc').value.trim(),
+        category: category || null,
+        image_url: document.getElementById('form-image-url').value || null,
+        quark_link: document.getElementById('form-link').value.trim(),
+        contact_tg: document.getElementById('form-tg').value.trim() || null,
+        is_active: document.getElementById('form-active').checked,
+      };
+
+      try {
+        if (id) {
+          await updateProduct(id, product);
+          showToast('已更新', 'success');
+        } else {
+          await insertProduct(product);
+          showToast('已发布', 'success');
+        }
+        closeModal();
+        await loadProducts();
+      } catch (err) {
+        showToast(err.message || '保存失败', 'error');
+      }
+    });
+
+    async function toggleItem(id) {
+      try {
+        await toggleProduct(id);
+        await loadProducts();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function deleteItem(id) {
+      if (!confirm(t('admin_confirm_delete'))) return;
+      try {
+        await deleteProduct(id);
+        showToast(t('admin_delete'), 'success');
+        await loadProducts();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!isLoggedIn()) { window.location = '/login.html?next=/dashboard.html'; return; }
+      loadTranslations();
+      await loadProducts();
+    });
+  </script>
+</body>
+</html>
